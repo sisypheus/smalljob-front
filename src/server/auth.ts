@@ -4,58 +4,95 @@ import {
   type NextAuthOptions,
   type DefaultSession,
 } from "next-auth";
+import CredentialsProvider from "next-auth/providers/credentials";
+import GoogleProvider from "next-auth/providers/google";
+import jwt from "jsonwebtoken";
 import { env } from "../env/server.mjs";
 
-/**
- * Module augmentation for `next-auth` types.
- * Allows us to add custom properties to the `session` object and keep type
- * safety.
- *
- * @see https://next-auth.js.org/getting-started/typescript#module-augmentation
- **/
+interface UserRole {
+  role: "seeker" | "poster" | "admin";
+}
+
 declare module "next-auth" {
   interface Session extends DefaultSession {
     user: {
       id: string;
-      // ...other properties
-      // role: UserRole;
+      role: UserRole;
     } & DefaultSession["user"];
   }
-
-  // interface User {
-  //   // ...other properties
-  //   // role: UserRole;
-  // }
 }
 
-/**
- * Options for NextAuth.js used to configure adapters, providers, callbacks,
- * etc.
- *
- * @see https://next-auth.js.org/configuration/options
- **/
 export const authOptions: NextAuthOptions = {
+  session: {
+    strategy: "jwt",
+  },
   callbacks: {
-    session({ session, user }) {
-      if (session.user) {
-        session.user.id = user.id;
-        // session.user.role = user.role; <-- put other properties on the session here
-      }
+    session({ session, user, token }) {
       return session;
+    },
+    signIn({ user }) {
+      return !!user;
+    },
+    jwt({ token, user }) {
+      return token;
     },
   },
   providers: [
-    /**
-     * ...add more providers here
-     *
-     * Most other providers require a bit more work than the Discord provider.
-     * For example, the GitHub provider requires you to add the
-     * `refresh_token_expires_in` field to the Account model. Refer to the
-     * NextAuth.js docs for the provider you want to use. Example:
-     *
-     * @see https://next-auth.js.org/providers/github
-     **/
+    CredentialsProvider({
+      name: "login",
+      credentials: {
+        username: { label: "Username", type: "text", placeholder: "jsmith" },
+        password: { label: "Password", type: "password" },
+      },
+      async authorize(credentials: any, req: any) {
+        const password = credentials.password;
+        const email = credentials.email;
+        console.log(credentials);
+
+        if (!email || !password) {
+          return null;
+        }
+        const user = { id: "1", name: "J Smith", email: "jsmith@example.com" };
+
+        if (user) {
+          return user;
+        } else {
+          return null;
+        }
+      },
+    }),
+    CredentialsProvider({
+      name: "login",
+      credentials: {
+        username: { label: "Username", type: "text", placeholder: "jsmith" },
+        password: { label: "Password", type: "password" },
+      },
+      async authorize(credentials: any, req: any) {
+        const password = credentials.password;
+        const email = credentials.email;
+        console.log(credentials);
+
+        if (!email || !password) {
+          return null;
+        }
+        const user = { id: "1", name: "J Smith", email: "jsmith@example.com" };
+
+        if (user) {
+          return user;
+        } else {
+          return null;
+        }
+      },
+    }),
+    GoogleProvider({
+      clientId: env.GOOGLE_CLIENT_ID,
+      clientSecret: env.GOOGLE_CLIENT_SECRET,
+    }),
   ],
+  jwt: {
+    secret: env.NEXTAUTH_SECRET,
+  },
+  secret: env.NEXTAUTH_SECRET,
 };
 
 /**
